@@ -1,0 +1,52 @@
+# FRC RL Driver – default training configuration
+# All values can be overridden by passing kwargs to PPOTrainer.
+
+# ------------------------------------------------------------------
+# Training hyperparameters
+# ------------------------------------------------------------------
+total_timesteps: 10000000    # Total env steps to train for
+n_envs: 4                      # Parallel environments (SubprocVecEnv)
+learning_rate: 0.0003
+n_steps: 2048                  # Steps collected per env before update
+batch_size: 256
+n_epochs: 10
+gamma: 0.99                    # Discount factor
+gae_lambda: 0.95
+clip_range: 0.2
+ent_coef: 0.01                 # Entropy bonus (encourages exploration)
+vf_coef: 0.5
+max_grad_norm: 0.5
+
+# ------------------------------------------------------------------
+# Environment
+# ------------------------------------------------------------------
+dt: 0.02                       # Simulation timestep (seconds)
+
+# WPILib maple-sim bridge settings.
+# Set wpilib_bridge_ip to the host running the WPILib simulation.
+# Set to null to use standalone Python simulation only.
+wpilib_bridge_ip: null         # e.g. "localhost" or "10.0.0.2"
+
+# ------------------------------------------------------------------
+# Reward weights
+# ------------------------------------------------------------------
+reward:
+  intake_reward: 2.0
+  score_reward_multiplier: 1.0
+  endgame_climb_reward: 5.0
+  failed_score_penalty: 0.5
+  robot_contact_penalty: 1.0
+  wall_contact_penalty: 0.3
+  time_penalty: 0.01
+
+# ------------------------------------------------------------------
+# Paths
+# ------------------------------------------------------------------
+log_dir: "logs/"
+snapshot_dir: "snapshots/"
+checkpoint_path: null          # Path to .zip to resume training
+
+# ------------------------------------------------------------------
+# Self-play
+# ------------------------------------------------------------------
+snapshot_interval_steps: 100000   # Save snapshot every N steps
