@@ -134,6 +134,10 @@ class PathGenerator:
         action, _ = self.model.predict(observation, deterministic=True)
         action = np.clip(action, -1.0, 1.0)
 
+        # Action components are normalised field-relative velocity commands.
+        # Field-relative means vx/vy are aligned with the field axes (not the
+        # robot's heading), so waypoint integration is a simple Euler step
+        # in field coordinates — no heading rotation is needed.
         vx = float(action[0]) * self.max_speed
         vy = float(action[1]) * self.max_speed
         omega = float(action[2]) * self.max_omega

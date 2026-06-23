@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------
 # Training hyperparameters
 # ------------------------------------------------------------------
-total_timesteps: 10_000_000    # Total env steps to train for
+total_timesteps: 10000000    # Total env steps to train for
 n_envs: 4                      # Parallel environments (SubprocVecEnv)
 learning_rate: 0.0003
 n_steps: 2048                  # Steps collected per env before update
@@ -49,4 +49,4 @@ checkpoint_path: null          # Path to .zip to resume training
 # ------------------------------------------------------------------
 # Self-play
 # ------------------------------------------------------------------
-snapshot_interval_steps: 100_000   # Save snapshot every N steps
+snapshot_interval_steps: 100000   # Save snapshot every N steps

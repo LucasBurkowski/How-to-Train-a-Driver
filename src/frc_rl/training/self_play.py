@@ -17,7 +17,7 @@ Usage
     env = FRCEnv(...)
     wrapper = SelfPlayWrapper(env)
     # wrapper behaves as a single-agent Gymnasium env whose observation
-    # is the PER-ROBOT obs (42-dim) and action is per-robot (3-dim).
+    # is the PER-ROBOT obs (27-dim) and action is per-robot (3-dim).
     # The wrapper cycles through robots using VecEnv-style batching.
 
 For multi-env training with SB3 SubprocVecEnv, each subprocess runs
@@ -36,7 +36,6 @@ from __future__ import annotations
 import copy
 import logging
 import os
-import pickle
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -56,11 +55,11 @@ except ImportError:
     _SB3_AVAILABLE = False
     logger.warning("stable-baselines3 not installed; SelfPlayManager disabled.")
 
-
-# Number of robots and per-robot dimensions (must match frc_env.py)
-NUM_ROBOTS = 6
-OBS_DIM = 27
-ACT_DIM = 3
+# Import dimension constants from the single source of truth in frc_env.
+# These are imported lazily to avoid circular imports at module load time.
+def _get_env_dims():
+    from frc_rl.env.frc_env import NUM_ROBOTS, OBS_DIM, ACT_DIM
+    return NUM_ROBOTS, OBS_DIM, ACT_DIM
 
 
 # ---------------------------------------------------------------------------
@@ -72,9 +71,9 @@ class SelfPlayWrapper(gym.Wrapper):
     Converts the 6-robot joint env into a single-agent per-robot env.
 
     The wrapper presents a single robot's observation / action at a time.
-    All NUM_ROBOTS robots are stepped together; the total reward is the
-    average per-robot reward (so the policy learns behaviour beneficial
-    for each individual robot).
+    All robots are stepped together; the total reward is the average
+    per-robot reward (so the policy learns behaviour beneficial for each
+    individual robot).
 
     Observation space : Box(OBS_DIM,)  – one robot's observation
     Action space      : Box(ACT_DIM,)  – one robot's velocity commands
@@ -82,17 +81,22 @@ class SelfPlayWrapper(gym.Wrapper):
 
     def __init__(self, env: gym.Env) -> None:
         super().__init__(env)
+        num_robots, obs_dim, act_dim = _get_env_dims()
+        self._num_robots = num_robots
+        self._obs_dim = obs_dim
+        self._act_dim = act_dim
+
         # Override obs / action spaces to per-robot sizes
         self.observation_space = spaces.Box(
-            low=-10.0, high=10.0, shape=(OBS_DIM,), dtype=np.float32
+            low=-10.0, high=10.0, shape=(obs_dim,), dtype=np.float32
         )
         self.action_space = spaces.Box(
-            low=-1.0, high=1.0, shape=(ACT_DIM,), dtype=np.float32
+            low=-1.0, high=1.0, shape=(act_dim,), dtype=np.float32
         )
 
         self._joint_obs: Optional[np.ndarray] = None
         self._robot_cursor: int = 0          # which robot we're currently serving
-        self._pending_actions: np.ndarray = np.zeros(NUM_ROBOTS * ACT_DIM, dtype=np.float32)
+        self._pending_actions: np.ndarray = np.zeros(num_robots * act_dim, dtype=np.float32)
         self._accumulated_reward: float = 0.0
         self._last_info: Dict[str, Any] = {}
         self._terminated = False
@@ -117,12 +121,12 @@ class SelfPlayWrapper(gym.Wrapper):
         self, action: np.ndarray
     ) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
         # Store this robot's action
-        start = self._robot_cursor * ACT_DIM
-        self._pending_actions[start : start + ACT_DIM] = action
+        start = self._robot_cursor * self._act_dim
+        self._pending_actions[start : start + self._act_dim] = action
 
         self._robot_cursor += 1
 
-        if self._robot_cursor < NUM_ROBOTS:
+        if self._robot_cursor < self._num_robots:
             # Not all robots have acted yet; return current obs without stepping
             obs = self._current_robot_obs()
             return obs, 0.0, False, False, {}
@@ -138,16 +142,18 @@ class SelfPlayWrapper(gym.Wrapper):
         self._last_info = info
 
         # Return per-robot avg reward
-        per_robot_rewards: List[float] = info.get("robot_rewards", [reward / NUM_ROBOTS] * NUM_ROBOTS)
+        per_robot_rewards: List[float] = info.get(
+            "robot_rewards", [reward / self._num_robots] * self._num_robots
+        )
         avg_reward = float(np.mean(per_robot_rewards))
 
         return self._current_robot_obs(), avg_reward, terminated, truncated, info
 
     def _current_robot_obs(self) -> np.ndarray:
         if self._joint_obs is None:
-            return np.zeros(OBS_DIM, dtype=np.float32)
-        idx = self._robot_cursor % NUM_ROBOTS
-        return self._joint_obs[idx * OBS_DIM : (idx + 1) * OBS_DIM].copy()
+            return np.zeros(self._obs_dim, dtype=np.float32)
+        idx = self._robot_cursor % self._num_robots
+        return self._joint_obs[idx * self._obs_dim : (idx + 1) * self._obs_dim].copy()
 
 
 # ---------------------------------------------------------------------------

@@ -3,7 +3,7 @@ Custom policy network for the FRC RL agent.
 
 Architecture
 ------------
-Input: flat observation vector (OBS_DIM = 42 per robot, but the
+Input: flat observation vector (OBS_DIM = 27 per robot, but the
        StableBaselines3 PPO policy sees the *per-robot* slice).
 
 Two-tower design:
